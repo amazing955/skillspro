@@ -1,0 +1,123 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitive Definition
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isVerified() {
+      return isSignedIn(); // For demo purposes, we'll allow all signed in users. In production use check token.email_verified
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation Blueprints
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid is string && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() <= 256 &&
+             data.role in ['student', 'admin'];
+    }
+
+    function isValidCourse(data) {
+      return data.title is string && data.title.size() <= 200 &&
+             data.description is string && data.description.size() <= 2000;
+    }
+
+    function isValidEnrollment(data) {
+      return data.userId is string && data.courseId is string &&
+             data.progress is number && data.progress >= 0 && data.progress <= 100;
+    }
+
+    function isValidCertificate(data) {
+      return data.userId is string && data.courseId is string &&
+             data.issueDate is string;
+    }
+
+    function isValidTransaction(data) {
+      return data.userId is string && data.amount is number &&
+             data.type in ['deposit', 'withdrawal', 'loan_repayment'];
+    }
+
+    function isValidLoanRequest(data) {
+      return data.userId is string && data.amount is number &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.phoneNumber is string && data.idFrontImageUrl is string && 
+             data.idBackImageUrl is string && data.securityDetails is string;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      // Allow creation if it's the owner's own UID
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      // Allow update for profile changes and balance increments
+      allow update: if (isOwner(userId) || isAdmin()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'savingsBalance', 'role', 'phoneNumber', 'idVerified'])
+      );
+    }
+
+    match /courses/{courseId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /enrollments/{enrollmentId} {
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidEnrollment(incoming());
+      allow update: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin()) && (
+         incoming().diff(existing()).affectedKeys().hasOnly(['progress', 'completed', 'dateCompleted', 'currentDay'])
+      );
+    }
+
+    match /certificates/{certificateId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() || isAdmin(); 
+    }
+
+    match /savings/{transactionId} {
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidTransaction(incoming());
+    }
+
+    match /loanRequests/{requestId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && 
+                    incoming().status == 'pending' && isValidLoanRequest(incoming());
+      allow update: if isAdmin();
+    }
+    
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      // Bootstrap permission for the primary admin
+      allow create: if isOwner(adminId) && request.auth.token.email == 'clintonatulinde@gmail.com';
+    }
+  }
+}

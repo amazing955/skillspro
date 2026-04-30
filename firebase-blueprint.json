@@ -1,0 +1,132 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile with skilling progress, savings data, and security details.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "admin"] },
+        "savingsBalance": { "type": "number" },
+        "phoneNumber": { "type": "string" },
+        "idVerified": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Course": {
+      "title": "Skilling Course",
+      "description": "A course module for local skills with a 7-day training structure.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "thumbnail": { "type": "string" },
+        "durationDays": { "type": "number", "default": 7 },
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": { "type": "string" },
+              "content": { "type": "string" },
+              "videoUrl": { "type": "string" },
+              "day": { "type": "number" }
+            }
+          }
+        }
+      },
+      "required": ["title", "description"]
+    },
+    "Enrollment": {
+      "title": "Course Enrollment",
+      "description": "Tracks a user's progress in a course.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "progress": { "type": "number" },
+        "completed": { "type": "boolean" },
+        "dateEnrolled": { "type": "string", "format": "date-time" },
+        "dateCompleted": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "courseId", "progress"]
+    },
+    "Certificate": {
+      "title": "Skill Certificate",
+      "description": "Proof of course completion.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "issueDate": { "type": "string", "format": "date-time" },
+        "certificateNumber": { "type": "string" }
+      },
+      "required": ["userId", "courseId", "issueDate"]
+    },
+    "SavingsTransaction": {
+      "title": "Savings Transaction",
+      "description": "Record of deposits or withdrawals in the saving unit.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["deposit", "withdrawal", "loan_repayment"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "description": { "type": "string" }
+      },
+      "required": ["userId", "amount", "type", "timestamp"]
+    },
+    "LoanRequest": {
+      "title": "Startup Loan Request",
+      "description": "Application for a startup loan with mandatory ID and security details.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "purpose": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "certificateId": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "idFrontImageUrl": { "type": "string" },
+        "idBackImageUrl": { "type": "string" },
+        "securityDetails": { "type": "string" }
+      },
+      "required": ["userId", "amount", "purpose", "status", "createdAt", "phoneNumber", "idFrontImageUrl", "idBackImageUrl"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Public and private user profile data."
+    },
+    "/courses/{courseId}": {
+      "schema": "Course",
+      "description": "Available skilling courses."
+    },
+    "/enrollments/{enrollmentId}": {
+      "schema": "Enrollment",
+      "description": "User progress per course."
+    },
+    "/certificates/{certificateId}": {
+      "schema": "Certificate",
+      "description": "Issued certificates."
+    },
+    "/savings/{transactionId}": {
+      "schema": "SavingsTransaction",
+      "description": "Savings ledger."
+    },
+    "/loanRequests/{requestId}": {
+      "schema": "LoanRequest",
+      "description": "Loan applications."
+    },
+    "/admins/{adminId}": {
+      "schema": "object",
+      "description": "Admin privileges mapping."
+    }
+  }
+}
